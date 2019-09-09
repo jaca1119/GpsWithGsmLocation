@@ -2,7 +2,7 @@
 Arduino project to send current GPS location using GSM shield
 
 == Step 0: Before start
-- In secret.h set Your server for example #define SECRET_SERVER "your-server-addres.com"
+- In secret.h set Your server for example ```#define SECRET_SERVER "your-server-addres.com"```
 
 == Step 1: Installation
 
