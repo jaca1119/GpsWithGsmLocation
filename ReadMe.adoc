@@ -1,0 +1,2 @@
+Like GpsWithGsmLocation but witout ArduinoHttpClient library.
+This sketch use only TinyGSM client to send data to server
