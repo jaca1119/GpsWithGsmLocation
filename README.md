@@ -17,3 +17,4 @@ For GSM module:
  - GND to GND 
  - TX to pin 2 Arduino (if not working replace pins at c. and d.
  - RX to pin 3 Arduino
+TESt
