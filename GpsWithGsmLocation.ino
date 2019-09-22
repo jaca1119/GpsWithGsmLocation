@@ -19,7 +19,6 @@
 #include <TinyGsmClient.h>
 
 
-
 //GPS connection
 static const int RXPin = 11, TXPin = 10;
 static const uint32_t GPSBaud = 9600;
@@ -35,10 +34,13 @@ const char gprsPass[] = "";
 //connection to server for example: "your-server-address.com"
 const char server[] = SECRET_SERVER;
 char resource[44];
-const char host[17] = sprintf();
-const int  port = 80;
-char lat[10];
-char lng[10];
+char get[79] = "GET ";
+static const char HTTP[] = " HTTP/1.1\r\n";
+char host[17];
+const int port = 80;
+char lat[12];
+char lng[12];
+
 
 // The serial connection to the GPS device
 SoftwareSerial ss(RXPin, TXPin);
@@ -51,12 +53,15 @@ TinyGsmClient client(modem);
 
 void setup() 
 {
+  
   //Serial monitor for output
   SerialMon.begin(9600);
   while(!SerialMon)
   {
     //wait
   }
+  // //it have to be after SerialMon.begin
+  // sprintf(host, "Host: %s\r\n", SECRET_SERVER);
   
   //GPS module
   ss.begin(9600);
@@ -66,64 +71,13 @@ void setup()
   delay(3000);
   
   Serial.print("Initializing modem...");
-  if (!modem.restart()) {
+  if (!modem.init()) {
     Serial.print("Failed to initialize modem, delaying 10s and retrying");
     delay(10000);
     // restart autobaud in case GSM just rebooted
     TinyGsmAutoBaud(SerialAT, GSM_AUTOBAUD_MIN, GSM_AUTOBAUD_MAX);
     // delay(10000);
   }
-  
-  
-  //When turn off and on device fast there is a chance that it is still connected to gprs
-  if (!modem.isGprsConnected())
-  {//It is importatnt to not use .waitForNetwork if it is currently connected to network. Connecting again may give you some problems
-    if (!modem.isNetworkConnected()) 
-    {
-      Serial.print(F("Waiting for network..."));
-      while (!modem.waitForNetwork())
-      {
-        Serial.println(" fail");
-        delay(10000);
-      }
-    }
-    Serial.println(" OK");
-
-    //Connecting to Your APN from Your sim
-    Serial.print(F("Connecting to "));
-    Serial.print(apn);
-    while (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-      Serial.println(" fail");
-      delay(10000);
-      // return;
-    }
-  }
-  else
-  {
-    Serial.print("\nGPRS status:");
-    Serial.println(" connected");
-  }
-  Serial.println("Start:");
-  
-  if (!modem.isNetworkConnected()) 
-    {
-      Serial.print(F("Waiting for network..."));
-      if (!modem.waitForNetwork())
-      {
-        Serial.println(" fail");
-        delay(10000);
-      }
-    }
-  
-  //Connecting to Your APN from Your sim
-    Serial.print(F("Connecting to "));
-    Serial.print(apn);
-    if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-      Serial.println(" fail");
-      delay(10000);
-      // return;
-    }
-  
 }
 
 void loop() 
@@ -131,28 +85,36 @@ void loop()
   SerialAT.listen();
   if (!modem.isNetworkConnected())
   {
-      Serial.print(F("Waiting for network..."));
-      if (!modem.waitForNetwork())
-      {
-        Serial.println(" fail");
-        delay(10000);
-        return;
-      }
+    Serial.print(F("Waiting for network..."));
+    if (!modem.waitForNetwork())
+    {
+      Serial.println(" fail with connecting to network");
+      delay(3000);
+      return;
+    }
+  }
 
+  if (!modem.isGprsConnected())
+  {
     //Connecting to Your APN from Your sim
     Serial.print(F("Connecting to "));
-    Serial.print(apn);
-    if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-      Serial.println(" fail");
+    Serial.println(apn);
+    if (!modem.gprsConnect(apn, gprsUser, gprsPass)) 
+    {
+      Serial.println(" fail connecting to APN");
       delay(10000);
       return;
     }
+  }
+
+  if (!client.connected())
+  {
     //Connecting to server
     SerialMon.print(F("Connecting to "));
-    SerialMon.print(server);
+    SerialMon.println(server);
     if (!client.connect(server, port))
     {
-        SerialMon.println(" fail");
+        SerialMon.println(" fail connecting to server");
         delay(10000);
         return;
     }
@@ -160,57 +122,101 @@ void loop()
   
   if (modem.isGprsConnected())
   {
+    Serial.println("Gprs: connected");
     //When working with some SoftwareSerial You have to pick which one we already should listen
     ss.listen();
+    //give some time for software serial change
+    delay(100);
     while (ss.available() > 0)
     {
+      // Serial.println("Inside GPS data recieve");
+      // ss.listen();
       gps.encode(ss.read());
+      
     
       if (gps.location.isUpdated())
       {
+        Serial.println("Location updated.");
         dtostrf(gps.location.lat(), 9, 6, lat);
         dtostrf(gps.location.lng(), 9, 6, lng);
         sprintf(resource, "/location/add.php?lat=%s&lng=%s", lat, lng);
+        // strcat(get, resource);
+        // strcat(get, HTTP);
         Serial.println(resource);
+        Serial.println(get);
         Serial.println();
         //gps.speed.kmph() //speed (double)
         //gps.course.deg() //course in degrees (double)
+
+        //code for sending data to server should be here
+        SerialAT.listen();
+        if(!client.connected())
+        {
+          SerialMon.println("\n\nClient not connected to server\n");
+          return;
+        }
+
+        Serial.println(F("Performing HTTP GET request... "));
+        //TODO change to:
+        /*
+          client.print("GET: ");
+          client.print(resource);
+          ...
+        */
+        client.print("GET ");
+        client.print(resource);
+        client.print(" HTTP/1.1\r\n");
+        client.print("Host: ");
+        client.print(SECRET_SERVER);
+        client.print("\r\n");
+        client.print("Connection: close\r\n\r\n");
+        
+        // client.print(get);
+        // client.print(host);
+        // client.print("Connection: close\r\n\r\n");
+        
+        long timeout = millis();
+        while (client.available() == 0)
+        {
+          if (millis() - timeout > 5000L) 
+          {
+            SerialMon.println(F(">>> Client Timeout !"));
+            client.stop();
+            delay(10000L);
+            return;
+          }
+        }
+        
+        //wait for server response
+        while(client.connected()) 
+        {
+          while(client.available())
+          {
+            Serial.write(client.read());
+          }
+        }
+        
+        //TODO get resonse status
+        /*int status = http.responseStatusCode();
+        Serial.println(status);
+        if (!status)
+        {
+          delay(10000);
+        }*/
+        
+        //end connection with server
+        client.stop();
       }
     }
-    
-    //TODO
-    SerialAT.listen();
-    if(!client.connected())
-    {
-        SerialMon.println("\n\nClient not connected to server\n");
-        return;
-    }
-
-    Serial.print(F("Performing HTTP GET request... "));
-    client.print();
-    int err = http.get(resource);
-    if (err != 0) 
-    {
-      Serial.println(F("failed to connect"));
-    }
-    
-    //TODO
-    int status = http.responseStatusCode();
-    Serial.println(status);
-    if (!status)
-    {
-      delay(10000);
-    }
-    
-    //TODO
-    http.stop();
-    Serial.println("Thirty seconds delay...");
-    smartDelay(30000);
   }
   else
   {
+    delay(10000);
     return;
   }
+
+  Serial.println("Thirty seconds delay...");
+  smartDelay(30000);
 }
 
 static void smartDelay(unsigned long ms)
@@ -218,6 +224,7 @@ static void smartDelay(unsigned long ms)
   unsigned long start = millis();
   do 
   {
+    // ss.listen();
     while (ss.available())
       gps.encode(ss.read());
   } while (millis() - start < ms);
