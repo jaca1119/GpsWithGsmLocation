@@ -1,4 +1,6 @@
 # GpsWithGsmLocation
+It is like GpsWithGsmLocation but with GSM first and next GPS check. TODO: Check if code is valid changed from GPS first to GSM first. Take setup of network and GPRS connection from "setup" function.
+
 Arduino project to send current GPS location using GSM shield
 
 == Step 0: Before start
