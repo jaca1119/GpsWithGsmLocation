@@ -168,7 +168,6 @@ bool setResourcesFromGps()
       dtostrf(gps.location.lng(), 9, 6, lng);
       sprintf(resource, "/location/add.php?lat=%s&lng=%s", lat, lng);
       Serial.println(resource);
-      Serial.println(get);
       Serial.println();
       //gps.speed.kmph() //speed (double)
       //gps.course.deg() //course in degrees (double)
