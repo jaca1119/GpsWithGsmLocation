@@ -79,6 +79,10 @@ void setup()
 
 void loop() 
 {  
+ 
+  setResourcesFromGps();
+  
+  //When working with two or more SoftwareSerial You have to pick which one arduino should listen
   SerialAT.listen();
   if (!modem.isNetworkConnected())
   {
@@ -117,103 +121,87 @@ void loop()
     }
   }
   
-  if (modem.isGprsConnected())
-  {
-    Serial.println("Gprs: connected");
-    //When working with some SoftwareSerial You have to pick which one we already should listen
-    ss.listen();
-    //give some time for software serial change
-    delay(100);
-    while (ss.available() > 0)
-    {
-      // Serial.println("Inside GPS data recieve");
-      // ss.listen();
-      gps.encode(ss.read());
-      
-    
-      if (gps.location.isUpdated())
-      {
-        Serial.println("Location updated.");
-        dtostrf(gps.location.lat(), 9, 6, lat);
-        dtostrf(gps.location.lng(), 9, 6, lng);
-        sprintf(resource, "/location/add.php?lat=%s&lng=%s", lat, lng);
-        // strcat(get, resource);
-        // strcat(get, HTTP);
-        Serial.println(resource);
-        Serial.println(get);
-        Serial.println();
-        //gps.speed.kmph() //speed (double)
-        //gps.course.deg() //course in degrees (double)
-
-        //code for sending data to server should be here
-        SerialAT.listen();
-
-        Serial.println(F("Performing HTTP GET request... "));
-        //TODO change to:
-        /*
-          client.print("GET: ");
-          client.print(resource);
-          ...
-        */
-        client.print("GET ");
-        client.print(resource);
-        client.print(" HTTP/1.1\r\n");
-        client.print("Host: ");
-        client.print(SECRET_SERVER);
-        client.print("\r\n");
-        client.print("Connection: close\r\n\r\n");
-        
-        // client.print(get);
-        // client.print(host);
-        // client.print("Connection: close\r\n\r\n");
-        
-        long timeout = millis();
-        while (client.available() == 0)
-        {
-          if (millis() - timeout > 5000L) 
-          {
-            SerialMon.println(F(">>> Client Timeout !"));
-            client.stop();
-            delay(10000L);
-            return;
-          }
-        }
-        
-        //wait for server response
-        while(client.connected()) 
-        {
-          while(client.available())
-          {
-            Serial.write(client.read());
-          }
-        }
-        
-        //TODO get resonse status
-        /*int status = http.responseStatusCode();
-        Serial.println(status);
-        if (!status)
-        {
-          delay(10000);
-        }*/
-        
-        //end connection with server
-        client.stop();
-      }
-    }
-  }
-  else
+  sendDataToServer();
+  
+  //TODO get resonse status
+  /*int status = http.responseStatusCode();
+  Serial.println(status);
+  if (!status)
   {
     delay(10000);
-    return;
+  }*/
+  
+  long timeout = millis();
+  while (client.available() == 0)
+  {
+    if (millis() - timeout > 5000L) 
+    {
+      SerialMon.println(F(">>> Client Timeout !"));
+      client.stop();
+      delay(10000L);
+      return;
+    }
   }
-
+  
+  //wait for server response
+  printServerResponse();
+  
+  //end connection with server
+  client.stop();
+  
   Serial.println("Thirty seconds delay...");
   smartDelay(30000);
 }
 
-void setResourcesFromGps()
+bool setResourcesFromGps()
 {
+  bool isResourcesSet = false;
+  ss.listen();
+  while (ss.available() > 0)
+  {
+    gps.encode(ss.read());
+    
+    if (gps.location.isUpdated())
+    {
+      Serial.println("Location updated.");
+      dtostrf(gps.location.lat(), 9, 6, lat);
+      dtostrf(gps.location.lng(), 9, 6, lng);
+      sprintf(resource, "/location/add.php?lat=%s&lng=%s", lat, lng);
+      Serial.println(resource);
+      Serial.println(get);
+      Serial.println();
+      //gps.speed.kmph() //speed (double)
+      //gps.course.deg() //course in degrees (double)
+      isResourcesSet = true;
+    }
+  }
   
+  return isResourcesSet;
+}
+
+void sendDataToServer()
+{
+  SerialAT.listen();
+  Serial.println(F("Performing HTTP GET request... "));
+  
+  client.print("GET ");
+  client.print(resource);
+  client.print(" HTTP/1.1\r\n");
+  client.print("Host: ");
+  client.print(SECRET_SERVER);
+  client.print("\r\n");
+  client.print("Connection: close\r\n\r\n");
+}
+
+void printServerResponse()
+{
+  while(client.connected()) 
+  {
+    while(client.available())
+    {
+      Serial.write(client.read());
+    }
+  }
 }
 
 static void smartDelay(unsigned long ms)
