@@ -34,9 +34,6 @@ const char gprsPass[] = "";
 //connection to server for example: "your-server-address.com"
 const char server[] = SECRET_SERVER;
 char resource[44];
-char get[79] = "GET ";
-static const char HTTP[] = " HTTP/1.1\r\n";
-char host[17];
 const int port = 80;
 char lat[12];
 char lng[12];
@@ -89,7 +86,7 @@ void loop()
     if (!modem.waitForNetwork())
     {
       Serial.println(" fail with connecting to network");
-      delay(3000);
+      delay(10000);
       return;
     }
   }
@@ -150,11 +147,6 @@ void loop()
 
         //code for sending data to server should be here
         SerialAT.listen();
-        if(!client.connected())
-        {
-          SerialMon.println("\n\nClient not connected to server\n");
-          return;
-        }
 
         Serial.println(F("Performing HTTP GET request... "));
         //TODO change to:
@@ -217,6 +209,11 @@ void loop()
 
   Serial.println("Thirty seconds delay...");
   smartDelay(30000);
+}
+
+void setResourcesFromGps()
+{
+  
 }
 
 static void smartDelay(unsigned long ms)
